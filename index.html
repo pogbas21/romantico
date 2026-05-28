@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Algo especial pra você 🌸</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body>
+
+  <!-- CORAÇÕES FLUTUANTES -->
+  <div class="hearts-bg" id="heartsBg"></div>
+
+  <!-- ======================== PÁGINA 1: ABERTURA ======================== -->
+  <section class="page active" id="page1">
+    <div class="card">
+      <div class="emoji-top">🌸</div>
+      <h1 class="title">Oi, Andressa...</h1>
+      <p class="subtitle">
+        Preparei algo pequeno, bobo, mas feito com muito carinho.<br/>
+        Vai levar só uns minutinhos — prometo que vale a pena.
+      </p>
+      <button class="btn" onclick="goTo('page1b')">Continuar ✨</button>
+    </div>
+  </section>
+
+  <!-- ======================== PÁGINA 1B: MÚSICA ======================== -->
+  <section class="page" id="page1b">
+    <div class="card">
+      <div class="emoji-top">🎵</div>
+      <h2 class="title">Uma perguntinha antes...</h2>
+      <p class="question">Qual música você lembra da gente? 🎶</p>
+
+      <div id="music-form">
+        <div class="search-box">
+          <input
+            type="text"
+            id="music-input"
+            class="music-input"
+            placeholder="Nome da música ou artista..."
+            oninput="debounceSearch()"
+            autocomplete="off"
+          />
+          <div class="search-spinner hidden" id="search-spinner">⏳</div>
+        </div>
+        <div id="search-results" class="search-results hidden"></div>
+      </div>
+
+      <!-- Player após seleção -->
+      <div id="music-selected" class="hidden">
+        <div class="selected-track" id="selected-track-info"></div>
+        <button class="btn" onclick="goTo('page2')" style="margin-top:1.25rem;">
+          Continuar ✨
+        </button>
+      </div>
+
+      <!-- YouTube player escondido -->
+      <div style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;">
+        <div id="yt-player"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== PÁGINA 2: QUIZ 1 ======================== -->
+  <section class="page" id="page2">
+    <div class="card">
+      <div class="emoji-top">🤔</div>
+      <h2 class="title">Perguntinha fácil...</h2>
+      <p class="question">Aonde foi que a gente se conheceu?</p>
+
+      <div class="options" id="quiz1-options">
+        <button class="option-btn" onclick="answer1(this, false)">🎓 Na faculdade</button>
+        <button class="option-btn" onclick="answer1(this, true)">🏋️ Na academia</button>
+        <button class="option-btn" onclick="answer1(this, false)">📱 Nas redes sociais</button>
+        <button class="option-btn" onclick="answer1(this, false)">🎉 Numa festa</button>
+      </div>
+
+      <div class="result hidden" id="quiz1-result">
+        <div class="correct-badge">✅ Acertou!</div>
+        <p class="romantic-text">
+          Depois que eu te vi a primeira vez na academia,<br/>
+          coloquei em minha mente que queria você pra mim. 🥰
+        </p>
+        <button class="btn" onclick="goTo('page3')">Próximo 💌</button>
+      </div>
+
+      <div class="wrong-msg hidden" id="quiz1-wrong">
+        <p>❌ Errou! Tenta de novo... 😄</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== PÁGINA 3: PERGUNTA ABERTA ======================== -->
+  <section class="page" id="page3">
+    <div class="card">
+      <div class="emoji-top">💋</div>
+      <h2 class="title">Agora me conta...</h2>
+      <p class="question">Aonde foi o nosso primeiro beijo? 🥰</p>
+
+      <div id="quiz2-form">
+        <textarea
+          id="quiz2-input"
+          class="text-input"
+          placeholder="Escreve aqui do jeito que lembra..."
+          rows="4"
+        ></textarea>
+        <button class="btn" onclick="checkAnswer2()">Confirmar 💌</button>
+      </div>
+
+      <div class="result hidden" id="quiz2-result">
+        <p class="romantic-text" id="quiz2-text"></p>
+        <button class="btn" onclick="goTo('page4')">Quero ver o final 🎁</button>
+      </div>
+
+      <div class="wrong-msg hidden" id="quiz2-wrong">
+        <p id="quiz2-wrong-text">Hmm... tenta lembrar melhor 😏</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== PÁGINA 4: PEGADINHA DO BOTÃO ======================== -->
+  <section class="page" id="page4">
+    <div class="card prank-card">
+      <div class="emoji-top">🎁</div>
+      <h2 class="title">Só mais um clique...</h2>
+      <p class="subtitle">Clica no botão abaixo para ver a surpresa 👇</p>
+
+      <div class="prank-area" id="prankArea">
+        <button class="btn prank-btn" id="prankBtn"
+          onmouseenter="moveButton()"
+          ontouchstart="moveButton()"
+        >
+          Clica aqui 💝
+        </button>
+      </div>
+
+      <p class="prank-hint" id="prankHint"></p>
+    </div>
+  </section>
+
+  <!-- ======================== PÁGINA 5: FINAL ======================== -->
+  <section class="page" id="page5">
+    <div class="final-card">
+      <div class="photo-frame">
+        <img src="images/ela.png" alt="Você 💕" class="photo" />
+        <div class="photo-glow"></div>
+      </div>
+      <div class="final-text">
+        <h1 class="final-title">Andressa. 🌸</h1>
+        <p class="final-msg">
+          Desde que a gente se conheceu, eu entendi o que era gostar<br/>
+          de uma pessoa de verdade. De querer ter ela por perto todo dia,<br/>
+          de me sentir melhor só de estar com você.
+        </p>
+        <p class="final-msg">
+          Você conseguiu fazer isso comigo de um jeito que eu não esperava.<br/>
+          Você é a garota mais linda que tem — se tivesse outras mil ao seu lado,<br/>
+          eu só conseguiria ter olhos pra você. 💛
+        </p>
+        <p class="final-hearts">
+          ❤️ Amo você. ❤️
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>
