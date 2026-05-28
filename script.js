@@ -206,7 +206,7 @@ function _carregarVideo(player, videoId) {
      então operações de volume em setTimeout são permitidas. */
   setTimeout(() => {
     try { player.unMute(); player.setVolume(55); } catch(e) {}
-  }, 17000);
+  }, 20000);
 }
 
 /* ---- Barra flutuante ---- */
