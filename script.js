@@ -68,9 +68,24 @@ function logResposta(campo, valor) {
   }).catch(() => {});
 }
 
-let debounceTimer = null;
+let debounceTimer  = null;
+let ytPlayer       = null;
+let ytPlayerReady  = false;   // true quando o player vazio já foi inicializado
 
-function onYouTubeIframeAPIReady() { /* IFrame API carregou — nada a fazer */ }
+/* Cria o player vazio assim que a API carrega.
+   iOS exige que playVideo() seja chamado dentro do gesto do usuário.
+   Pré-criar o player resolve isso: quando ela clicar no resultado,
+   chamamos loadVideoById() de forma síncrona no mesmo gesto. */
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player('yt-player', {
+    height: '1', width: '1',
+    videoId: '',   // vazio — só inicializa o player
+    playerVars: { controls: 0, fs: 0, rel: 0, playsinline: 1 },
+    events: {
+      onReady: () => { ytPlayerReady = true; },
+    }
+  });
+}
 
 /* ---- Busca ---- */
 function debounceSearch() {
@@ -158,39 +173,44 @@ function selectTrack(videoId, thumb, title, author) {
    - getDuration() ≤ 45s → é propaganda → mantém mudo e aguarda próxima mudança
 =========================== */
 
-let audioEl       = null;
+let audioEl        = null;
 let currentVideoId = null;
-let ytPlayer       = null;
 let adEnforcer     = null;
+// ytPlayer e ytPlayerReady são declarados acima (junto com onYouTubeIframeAPIReady)
 
 function selectTrackPlay(videoId, title, art) {
-  playOnYouTube(videoId, title, art);
-}
-
-function playOnYouTube(videoId, title, art) {
-  if (audioEl)    { audioEl.pause(); audioEl.src = ''; audioEl = null; }
-  if (ytPlayer)   { ytPlayer.destroy(); ytPlayer = null; }
-  if (adEnforcer) { clearInterval(adEnforcer); adEnforcer = null; }
   currentVideoId = videoId;
 
-  ytPlayer = new YT.Player('yt-player', {
-    height: '1', width: '1',
-    videoId: videoId,
-    playerVars: {
-      autoplay: 1, controls: 0, loop: 1,
-      playlist: videoId, fs: 0, rel: 0, modestbranding: 1,
-    },
-    events: {
-      onReady: ev => {
-        ev.target.mute();
-        ev.target.playVideo();
-        // Fica mudo 15s (cobre anúncios), depois desmuta
-        setTimeout(() => {
-          try { ev.target.unMute(); ev.target.setVolume(55); } catch(e) {}
-        }, 10000);
-      },
-    }
-  });
+  if (ytPlayerReady) {
+    /* Player já existe e está pronto — carrega diretamente no gesto do usuário.
+       Isso faz o iOS Safari aceitar a reprodução. */
+    ytPlayer.mute();
+    ytPlayer.loadVideoById({ videoId, startSeconds: 0 });
+    ytPlayer.playVideo();
+    setTimeout(() => {
+      try { ytPlayer.unMute(); ytPlayer.setVolume(55); } catch(e) {}
+    }, 10000);
+  } else {
+    /* Fallback: API ainda não carregou — cria o player normalmente.
+       Pode não funcionar no iOS, mas tenta. */
+    if (ytPlayer) { try { ytPlayer.destroy(); } catch(e) {} }
+    ytPlayer = new YT.Player('yt-player', {
+      height: '1', width: '1',
+      videoId: videoId,
+      playerVars: { autoplay: 1, controls: 0, loop: 1, playlist: videoId,
+                    fs: 0, rel: 0, modestbranding: 1, playsinline: 1 },
+      events: {
+        onReady: ev => {
+          ytPlayerReady = true;
+          ev.target.mute();
+          ev.target.playVideo();
+          setTimeout(() => {
+            try { ev.target.unMute(); ev.target.setVolume(55); } catch(e) {}
+          }, 10000);
+        },
+      }
+    });
+  }
 }
 
 /* ---- Barra flutuante ---- */
