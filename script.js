@@ -187,7 +187,7 @@ function playOnYouTube(videoId, title, art) {
         // Fica mudo 15s (cobre anúncios), depois desmuta
         setTimeout(() => {
           try { ev.target.unMute(); ev.target.setVolume(55); } catch(e) {}
-        }, 15000);
+        }, 10000);
       },
     }
   });
