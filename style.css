@@ -339,6 +339,20 @@ html, body {
   flex-direction: column;
   gap: 3px;
   text-align: left;
+  min-width: 0;        /* permite encolher dentro do flex */
+  overflow: hidden;
+}
+
+.selected-details .track-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selected-details .track-artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .preview-badge {
