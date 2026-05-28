@@ -70,17 +70,18 @@ function logResposta(campo, valor) {
 
 let debounceTimer  = null;
 let ytPlayer       = null;
-let ytPlayerReady  = false;   // true quando o player vazio já foi inicializado
+let ytPlayerReady  = false;
 
-/* Cria o player vazio assim que a API carrega.
-   iOS exige que playVideo() seja chamado dentro do gesto do usuário.
-   Pré-criar o player resolve isso: quando ela clicar no resultado,
-   chamamos loadVideoById() de forma síncrona no mesmo gesto. */
+// Detecta iOS/Android — no mobile não mutamos (setTimeout unmute é bloqueado pelo iOS)
+const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
+
+/* Pré-cria o player SEM videoId assim que a API carrega.
+   Com o player já pronto, loadVideoById() no clique é síncrono
+   → iOS aceita a reprodução. */
 function onYouTubeIframeAPIReady() {
   ytPlayer = new YT.Player('yt-player', {
     height: '1', width: '1',
-    videoId: '',   // vazio — só inicializa o player
-    playerVars: { controls: 0, fs: 0, rel: 0, playsinline: 1 },
+    playerVars: { controls: 0, fs: 0, rel: 0, playsinline: 1, origin: location.origin },
     events: {
       onReady: () => { ytPlayerReady = true; },
     }
@@ -176,41 +177,40 @@ function selectTrack(videoId, thumb, title, author) {
 let audioEl        = null;
 let currentVideoId = null;
 let adEnforcer     = null;
-// ytPlayer e ytPlayerReady são declarados acima (junto com onYouTubeIframeAPIReady)
 
 function selectTrackPlay(videoId, title, art) {
   currentVideoId = videoId;
 
-  if (ytPlayerReady) {
-    /* Player já existe e está pronto — carrega diretamente no gesto do usuário.
-       Isso faz o iOS Safari aceitar a reprodução. */
-    ytPlayer.mute();
-    ytPlayer.loadVideoById({ videoId, startSeconds: 0 });
-    ytPlayer.playVideo();
-    setTimeout(() => {
-      try { ytPlayer.unMute(); ytPlayer.setVolume(55); } catch(e) {}
-    }, 10000);
+  if (ytPlayerReady && ytPlayer) {
+    _carregarVideo(ytPlayer, videoId);
   } else {
-    /* Fallback: API ainda não carregou — cria o player normalmente.
-       Pode não funcionar no iOS, mas tenta. */
-    if (ytPlayer) { try { ytPlayer.destroy(); } catch(e) {} }
-    ytPlayer = new YT.Player('yt-player', {
-      height: '1', width: '1',
-      videoId: videoId,
-      playerVars: { autoplay: 1, controls: 0, loop: 1, playlist: videoId,
-                    fs: 0, rel: 0, modestbranding: 1, playsinline: 1 },
-      events: {
-        onReady: ev => {
-          ytPlayerReady = true;
-          ev.target.mute();
-          ev.target.playVideo();
-          setTimeout(() => {
-            try { ev.target.unMute(); ev.target.setVolume(55); } catch(e) {}
-          }, 10000);
-        },
+    /* API ainda não terminou de carregar — aguarda e tenta de novo */
+    const tentarIniciar = setInterval(() => {
+      if (ytPlayerReady && ytPlayer) {
+        clearInterval(tentarIniciar);
+        _carregarVideo(ytPlayer, videoId);
       }
-    });
+    }, 200);
+    /* Desiste após 5s para não travar */
+    setTimeout(() => clearInterval(tentarIniciar), 5000);
   }
+}
+
+function _carregarVideo(player, videoId) {
+  /* loadVideoById + playVideo sincrono no gesto → iOS aceita */
+  player.loadVideoById({ videoId, startSeconds: 0 });
+  player.playVideo();
+
+  if (!isMobile) {
+    /* Desktop: muta 10s para cobrir anúncio pré-roll, depois desmuta */
+    player.mute();
+    player.loadVideoById({ videoId, startSeconds: 0 });
+    player.playVideo();
+    setTimeout(() => {
+      try { player.unMute(); player.setVolume(55); } catch(e) {}
+    }, 10000);
+  }
+  /* Mobile: toca sem mutar — setTimeout unmute é bloqueado pelo iOS Safari */
 }
 
 /* ---- Barra flutuante ---- */
