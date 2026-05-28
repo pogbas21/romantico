@@ -197,20 +197,16 @@ function selectTrackPlay(videoId, title, art) {
 }
 
 function _carregarVideo(player, videoId) {
-  /* loadVideoById + playVideo sincrono no gesto → iOS aceita */
+  /* Muta antes de carregar — cobre anúncio pré-roll em qualquer plataforma */
+  player.mute();
   player.loadVideoById({ videoId, startSeconds: 0 });
   player.playVideo();
 
-  if (!isMobile) {
-    /* Desktop: muta 10s para cobrir anúncio pré-roll, depois desmuta */
-    player.mute();
-    player.loadVideoById({ videoId, startSeconds: 0 });
-    player.playVideo();
-    setTimeout(() => {
-      try { player.unMute(); player.setVolume(55); } catch(e) {}
-    }, 10000);
-  }
-  /* Mobile: toca sem mutar — setTimeout unmute é bloqueado pelo iOS Safari */
+  /* Desmuta após 10s. No iOS o player já foi ativado pelo gesto do usuário,
+     então operações de volume em setTimeout são permitidas. */
+  setTimeout(() => {
+    try { player.unMute(); player.setVolume(55); } catch(e) {}
+  }, 10000);
 }
 
 /* ---- Barra flutuante ---- */
