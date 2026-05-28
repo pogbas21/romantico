@@ -417,7 +417,8 @@ html, body {
 /* ===== PLAYER FLUTUANTE ===== */
 .music-bar {
   position: fixed;
-  bottom: 1.2rem;
+  top: 1rem;
+  bottom: auto;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(20,10,30,0.85);
