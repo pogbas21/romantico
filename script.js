@@ -157,11 +157,17 @@ function selectTrack(videoId, thumb, title, author) {
   }
 
   createMusicBar(title, author);
+  if (ytPlayer) ytPlayer._title = `${title} — ${author}`;
   logResposta('musica', { titulo: title, artista: author, videoId, url: `https://youtu.be/${videoId}` });
 }
 
+let adWatcher = null;
+let currentVideoId = null;
+
 function playOnYouTube(videoId, title, art) {
   if (ytPlayer) { ytPlayer.destroy(); ytPlayer = null; }
+  if (adWatcher)  { clearInterval(adWatcher); adWatcher = null; }
+  currentVideoId = videoId;
 
   ytPlayer = new YT.Player('yt-player', {
     height: '1', width: '1',
@@ -174,9 +180,48 @@ function playOnYouTube(videoId, title, art) {
       fs: 0, rel: 0, modestbranding: 1,
     },
     events: {
-      onReady: e => { e.target.setVolume(55); e.target.playVideo(); },
+      onReady: e => {
+        e.target.setVolume(55);
+        e.target.playVideo();
+        iniciarWatcherPropaganda();
+      },
     }
   });
+}
+
+/* ---- Detecta propaganda e muta automaticamente ---- */
+function iniciarWatcherPropaganda() {
+  adWatcher = setInterval(() => {
+    if (!ytPlayer || typeof ytPlayer.getVideoUrl !== 'function') return;
+    try {
+      const url = ytPlayer.getVideoUrl() || '';
+      const isAd = !url.includes(currentVideoId);
+      if (isAd) {
+        if (!ytPlayer.isMuted()) {
+          ytPlayer.mute();
+          atualizarBarraMusica('🔇 propaganda (mutada automaticamente)');
+        }
+      } else {
+        if (ytPlayer.isMuted()) {
+          ytPlayer.unMute();
+          ytPlayer.setVolume(55);
+          const bar = document.getElementById('music-bar-global');
+          if (bar) {
+            const spans = bar.querySelectorAll('span');
+            if (spans[1]) spans[1].innerHTML = `<strong>${ytPlayer._title||''}</strong>`;
+          }
+        }
+      }
+    } catch(e) {}
+  }, 700);
+}
+
+function atualizarBarraMusica(texto) {
+  const bar = document.getElementById('music-bar-global');
+  if (bar) {
+    const s = bar.querySelectorAll('span');
+    if (s[1]) s[1].textContent = texto;
+  }
 }
 
 /* ---- Barra flutuante ---- */
