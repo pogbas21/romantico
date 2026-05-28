@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin 🔒</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f0a1a;color:#fff;min-height:100vh;padding:2rem 1rem;}
+    h1{font-size:1.6rem;background:linear-gradient(135deg,#f472b6,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem;}
+    .sub{font-size:.85rem;color:rgba(255,255,255,.4);margin-bottom:2rem;}
+    .card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:1.5rem;margin-bottom:1.25rem;max-width:600px;}
+    .label{font-size:.75rem;color:#a78bfa;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;}
+    .value{font-size:1rem;color:#fff;line-height:1.6;word-break:break-word;}
+    .value a{color:#f472b6;text-decoration:none;}
+    .value a:hover{text-decoration:underline;}
+    .empty{color:rgba(255,255,255,.3);font-style:italic;font-size:.9rem;}
+    .ts{font-size:.75rem;color:rgba(255,255,255,.3);margin-top:.75rem;}
+    #status{font-size:.8rem;color:rgba(255,255,255,.35);margin-bottom:1.5rem;}
+    .notice{background:rgba(244,114,182,.07);border:1px solid rgba(244,114,182,.2);border-radius:12px;padding:1rem;margin-bottom:1.5rem;max-width:600px;font-size:.85rem;color:rgba(255,255,255,.6);line-height:1.6;}
+    .notice strong{color:#f472b6;}
+  </style>
+</head>
+<body>
+  <h1>🔒 Respostas da Andressa</h1>
+  <p class="sub">Atualize a página a qualquer momento para ver o estado mais recente.</p>
+
+  <div class="notice">
+    <strong>Como funciona:</strong> As respostas são salvas no navegador dela. Abra esta página <strong>no mesmo dispositivo</strong> que ela usou — ou verifique o <strong>email</strong> que foi enviado para você automaticamente em cada resposta.
+  </div>
+
+  <div id="status">Lendo respostas...</div>
+
+  <div class="card">
+    <div class="label">🎵 Música que ela escolheu</div>
+    <div class="value" id="musica"><span class="empty">Ainda não escolheu</span></div>
+  </div>
+
+  <div class="card">
+    <div class="label">💋 Resposta sobre o primeiro beijo</div>
+    <div class="value" id="beijo"><span class="empty">Ainda não respondeu</span></div>
+  </div>
+
+  <div class="card">
+    <div class="label">🕐 Última atualização</div>
+    <div class="value" id="timestamp"><span class="empty">—</span></div>
+  </div>
+
+  <script>
+    function carregar() {
+      const raw = localStorage.getItem('respostas');
+      if (!raw) {
+        document.getElementById('status').textContent = 'Nenhuma resposta no dispositivo atual.';
+        return;
+      }
+      const d = JSON.parse(raw);
+
+      const mEl = document.getElementById('musica');
+      if (d.musica) {
+        mEl.innerHTML = `
+          <strong>${d.musica.titulo}</strong><br/>
+          <span style="color:rgba(255,255,255,.5)">${d.musica.artista}</span><br/>
+          <a href="${d.musica.url}" target="_blank">▶ Abrir no YouTube</a>`;
+      }
+
+      const bEl = document.getElementById('beijo');
+      if (d.beijo) {
+        bEl.textContent = d.beijo;
+      }
+
+      const tEl = document.getElementById('timestamp');
+      if (d.timestamp) {
+        tEl.textContent = new Date(d.timestamp).toLocaleString('pt-BR');
+      }
+
+      document.getElementById('status').textContent = 'Lido do dispositivo · ' + new Date().toLocaleTimeString('pt-BR');
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

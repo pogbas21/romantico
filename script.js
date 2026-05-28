@@ -40,8 +40,33 @@ function goTo(pageId) {
    Toca:  YouTube IFrame (música completa)
 =========================== */
 
-// 🔑 Cole sua chave aqui após pegar no Google Console
-const YT_API_KEY = 'AIzaSyB-JDSckXZCbbQjwIXsQW2hZvNyEkeffIc';
+const YT_API_KEY = 'AIzaSyB-JDSckXZCbbQjwIXsQW2hZvNyEKeffIc';
+
+/* ---- Salva resposta localmente + envia email via Formsubmit ---- */
+const ADMIN_EMAIL = 'jrodriguessilvaoliveira081@gmail.com';
+
+function logResposta(campo, valor) {
+  // 1) Salva no localStorage
+  const atual = JSON.parse(localStorage.getItem('respostas') || '{}');
+  atual[campo] = valor;
+  atual.timestamp = new Date().toISOString();
+  localStorage.setItem('respostas', JSON.stringify(atual));
+
+  // 2) Envia email via Formsubmit (sem token, sem backend)
+  const corpo = campo === 'musica'
+    ? `🎵 Música: ${valor.titulo} — ${valor.artista}\n🔗 ${valor.url}`
+    : `💋 Resposta sobre o beijo:\n"${valor}"`;
+
+  fetch('https://formsubmit.co/ajax/' + ADMIN_EMAIL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      _subject: campo === 'musica' ? '🎵 Andressa escolheu uma música!' : '💋 Andressa respondeu sobre o beijo!',
+      _template: 'box',
+      mensagem: corpo,
+    })
+  }).catch(() => {});
+}
 
 let ytPlayer      = null;
 let debounceTimer = null;
@@ -66,7 +91,7 @@ function debounceSearch() {
 
 async function doSearch(query) {
   try {
-    const url  = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=6&key=${YT_API_KEY}`;
+    const url  = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=6&key=${YT_API_KEY}`;
     const res  = await fetch(url);
     const data = await res.json();
 
@@ -132,6 +157,7 @@ function selectTrack(videoId, thumb, title, author) {
   }
 
   createMusicBar(title, author);
+  logResposta('musica', { titulo: title, artista: author, videoId, url: `https://youtu.be/${videoId}` });
 }
 
 function playOnYouTube(videoId, title, art) {
@@ -244,6 +270,8 @@ function checkAnswer2() {
     textEl.innerHTML =
       'Pensei que não ia lembrar kkk 😂<br/>' +
       'Fui embora todo bobo pra casa esse dia. 🥹';
+
+    logResposta('beijo', raw);
 
     setTimeout(() => {
       document.getElementById('quiz2-result').classList.remove('hidden');
