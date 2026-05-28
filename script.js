@@ -161,12 +161,10 @@ function selectTrack(videoId, thumb, title, author) {
   logResposta('musica', { titulo: title, artista: author, videoId, url: `https://youtu.be/${videoId}` });
 }
 
-let adWatcher = null;
 let currentVideoId = null;
 
 function playOnYouTube(videoId, title, art) {
   if (ytPlayer) { ytPlayer.destroy(); ytPlayer = null; }
-  if (adWatcher)  { clearInterval(adWatcher); adWatcher = null; }
   currentVideoId = videoId;
 
   ytPlayer = new YT.Player('yt-player', {
@@ -181,46 +179,40 @@ function playOnYouTube(videoId, title, art) {
     },
     events: {
       onReady: e => {
+        // Começa mutado — propaganda não vai ter som nenhum
+        e.target.mute();
         e.target.setVolume(55);
         e.target.playVideo();
-        iniciarWatcherPropaganda();
+      },
+      onStateChange: e => {
+        // Toda vez que algo começa a tocar, verifica se é o vídeo real
+        if (e.data === YT.PlayerState.PLAYING) {
+          checarPropaganda(e.target);
+        }
       },
     }
   });
 }
 
-/* ---- Detecta propaganda e muta automaticamente ---- */
-function iniciarWatcherPropaganda() {
-  adWatcher = setInterval(() => {
-    if (!ytPlayer || typeof ytPlayer.getVideoUrl !== 'function') return;
-    try {
-      const url = ytPlayer.getVideoUrl() || '';
-      const isAd = !url.includes(currentVideoId);
-      if (isAd) {
-        if (!ytPlayer.isMuted()) {
-          ytPlayer.mute();
-          atualizarBarraMusica('🔇 propaganda (mutada automaticamente)');
-        }
-      } else {
-        if (ytPlayer.isMuted()) {
-          ytPlayer.unMute();
-          ytPlayer.setVolume(55);
-          const bar = document.getElementById('music-bar-global');
-          if (bar) {
-            const spans = bar.querySelectorAll('span');
-            if (spans[1]) spans[1].innerHTML = `<strong>${ytPlayer._title||''}</strong>`;
-          }
-        }
-      }
-    } catch(e) {}
-  }, 700);
-}
+function checarPropaganda(player) {
+  try {
+    const data   = player.getVideoData();
+    const ehReal = data && data.video_id === currentVideoId;
 
-function atualizarBarraMusica(texto) {
-  const bar = document.getElementById('music-bar-global');
-  if (bar) {
-    const s = bar.querySelectorAll('span');
-    if (s[1]) s[1].textContent = texto;
+    if (ehReal) {
+      if (player.isMuted()) {
+        player.unMute();
+        player.setVolume(55);
+      }
+    } else {
+      // É propaganda — mantém mutado
+      if (!player.isMuted()) player.mute();
+    }
+  } catch(e) {}
+
+  // Continua verificando a cada 500ms enquanto estiver tocando
+  if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+    setTimeout(() => checarPropaganda(player), 500);
   }
 }
 
