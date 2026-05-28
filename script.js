@@ -181,41 +181,16 @@ function playOnYouTube(videoId, title, art) {
       playlist: videoId, fs: 0, rel: 0, modestbranding: 1,
     },
     events: {
-      onReady:       ev => { ev.target.mute(); ev.target.playVideo(); },
-      onStateChange: ev => checarSeEMusica(ev.target),
+      onReady: ev => {
+        ev.target.mute();
+        ev.target.playVideo();
+        // Fica mudo 15s (cobre anúncios), depois desmuta
+        setTimeout(() => {
+          try { ev.target.unMute(); ev.target.setVolume(55); } catch(e) {}
+        }, 15000);
+      },
     }
   });
-}
-
-/*
- * Lógica:
- *  - Quando o player muda de estado (buffering/playing/etc.),
- *    aguardamos 800ms para o player estabilizar e então checamos a duração.
- *  - getDuration() > 45s  →  é a música real → desmuta
- *  - getDuration() ≤ 45s  →  propaganda → mantém mudo
- *  - getDuration() === 0   →  ainda carregando → tenta de novo em 2s
- */
-let _checarTimer = null;
-
-function checarSeEMusica(player) {
-  clearTimeout(_checarTimer);
-  _checarTimer = setTimeout(() => _avaliarDuracao(player), 800);
-}
-
-function _avaliarDuracao(player) {
-  if (!player) return;
-  try {
-    const dur = player.getDuration();
-    if (dur > 45) {
-      // Duração longa = música real
-      player.unMute();
-      player.setVolume(55);
-    } else if (dur === 0) {
-      // Ainda carregando — tenta de novo
-      _checarTimer = setTimeout(() => _avaliarDuracao(player), 2000);
-    }
-    // dur ≤ 45 e > 0 = anúncio → fica mudo, próxima mudança de estado vai re-checar
-  } catch(e) {}
 }
 
 /* ---- Barra flutuante ---- */
