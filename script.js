@@ -68,16 +68,9 @@ function logResposta(campo, valor) {
   }).catch(() => {});
 }
 
-let ytPlayer      = null;
 let debounceTimer = null;
-let pendingPlay   = null;
 
-function onYouTubeIframeAPIReady() {
-  if (pendingPlay) {
-    playOnYouTube(pendingPlay.videoId, pendingPlay.title, pendingPlay.art);
-    pendingPlay = null;
-  }
-}
+function onYouTubeIframeAPIReady() { /* IFrame API carregou — nada a fazer */ }
 
 /* ---- Busca ---- */
 function debounceSearch() {
@@ -150,116 +143,78 @@ function selectTrack(videoId, thumb, title, author) {
   `;
   document.getElementById('music-selected').classList.remove('hidden');
 
-  if (typeof YT !== 'undefined' && YT.Player) {
-    playOnYouTube(videoId, title, thumb);
-  } else {
-    pendingPlay = { videoId, title, art: thumb };
-  }
+  // Tenta servidor local primeiro; fallback pro YouTube IFrame
+  selectTrackPlay(videoId, title, thumb);
 
   createMusicBar(title, author);
-  if (ytPlayer) ytPlayer._title = `${title} — ${author}`;
   logResposta('musica', { titulo: title, artista: author, videoId, url: `https://youtu.be/${videoId}` });
 }
 
-let currentVideoId  = null;
-let adEnforcer      = null;
-let videoConfirmed  = false; // true quando confirmamos que o vídeo real está tocando
+/* ===========================
+   REPRODUÇÃO — YouTube IFrame
+   Detecção de anúncio:
+   - Começa mudo sempre
+   - getDuration() > 45s → é a música real → desmuta
+   - getDuration() ≤ 45s → é propaganda → mantém mudo e aguarda próxima mudança
+=========================== */
+
+let audioEl       = null;
+let currentVideoId = null;
+let ytPlayer       = null;
+let adEnforcer     = null;
+
+function selectTrackPlay(videoId, title, art) {
+  playOnYouTube(videoId, title, art);
+}
 
 function playOnYouTube(videoId, title, art) {
-  if (ytPlayer)    { ytPlayer.destroy(); ytPlayer = null; }
-  if (adEnforcer)  { clearInterval(adEnforcer); adEnforcer = null; }
+  if (audioEl)    { audioEl.pause(); audioEl.src = ''; audioEl = null; }
+  if (ytPlayer)   { ytPlayer.destroy(); ytPlayer = null; }
+  if (adEnforcer) { clearInterval(adEnforcer); adEnforcer = null; }
   currentVideoId = videoId;
-  videoConfirmed = false;
 
   ytPlayer = new YT.Player('yt-player', {
     height: '1', width: '1',
     videoId: videoId,
     playerVars: {
-      autoplay: 1,
-      controls: 0,
-      loop:     1,
-      playlist: videoId,
-      fs: 0, rel: 0, modestbranding: 1,
+      autoplay: 1, controls: 0, loop: 1,
+      playlist: videoId, fs: 0, rel: 0, modestbranding: 1,
     },
     events: {
-      onReady: e => {
-        forceMute(e.target);  // começa sempre mudo
-        e.target.playVideo();
-        iniciarEnforcer();
-      },
+      onReady:       ev => { ev.target.mute(); ev.target.playVideo(); },
+      onStateChange: ev => checarSeEMusica(ev.target),
     }
   });
-
-  window.addEventListener('message', onYTMessage);
 }
 
-function forceMute(p) {
-  try { p.mute();       } catch(e) {}
-  try { p.setVolume(0); } catch(e) {}
+/*
+ * Lógica:
+ *  - Quando o player muda de estado (buffering/playing/etc.),
+ *    aguardamos 800ms para o player estabilizar e então checamos a duração.
+ *  - getDuration() > 45s  →  é a música real → desmuta
+ *  - getDuration() ≤ 45s  →  propaganda → mantém mudo
+ *  - getDuration() === 0   →  ainda carregando → tenta de novo em 2s
+ */
+let _checarTimer = null;
+
+function checarSeEMusica(player) {
+  clearTimeout(_checarTimer);
+  _checarTimer = setTimeout(() => _avaliarDuracao(player), 800);
 }
 
-function forceUnmute(p) {
-  try { p.unMute();      } catch(e) {}
-  try { p.setVolume(55); } catch(e) {}
-}
-
-// Retorna true se CONFIRMAMOS que o vídeo real está tocando
-function eVideoReal(p) {
+function _avaliarDuracao(player) {
+  if (!player) return;
   try {
-    const d = p.getVideoData();
-    if (d && d.video_id === currentVideoId) return true;
-  } catch(e) {}
-  return false;
-}
-
-// Retorna true se DETECTAMOS um anúncio (pode haver falsos negativos)
-function estaEmPropaganda(p) {
-  try {
-    if (typeof p.getAdState === 'function' && p.getAdState() === 1) return true;
-  } catch(e) {}
-  try {
-    const d = p.getVideoData();
-    if (d && d.video_id && d.video_id !== currentVideoId) return true;
-  } catch(e) {}
-  return false;
-}
-
-function iniciarEnforcer() {
-  // Polling a cada 150ms
-  adEnforcer = setInterval(() => {
-    if (!ytPlayer) return;
-    try {
-      if (estaEmPropaganda(ytPlayer)) {
-        // Propaganda detectada — muta e deconfirma
-        videoConfirmed = false;
-        forceMute(ytPlayer);
-      } else if (eVideoReal(ytPlayer)) {
-        // Vídeo real confirmado — pode tocar
-        videoConfirmed = true;
-        if (ytPlayer.isMuted()) forceUnmute(ytPlayer);
-      } else {
-        // Estado incerto (pode ser propaganda sem video_id diferente)
-        // Mantém mudo até confirmação positiva
-        if (!videoConfirmed) forceMute(ytPlayer);
-      }
-    } catch(e) { forceMute(ytPlayer); }
-  }, 150);
-}
-
-// Intercepta postMessages do YouTube
-function onYTMessage(ev) {
-  if (!ev.origin.includes('youtube.com')) return;
-  try {
-    const msg  = JSON.parse(ev.data);
-    const info = msg.info || {};
-    if (msg.event === 'infoDelivery' && info.videoData !== undefined) {
-      const vid = info.videoData ? info.videoData.video_id : '';
-      if (!vid || vid !== currentVideoId) {
-        // video_id diferente ou vazio = propaganda
-        videoConfirmed = false;
-        if (ytPlayer) forceMute(ytPlayer);
-      }
+    const dur = player.getDuration();
+    if (dur > 45) {
+      // Duração longa = música real
+      player.unMute();
+      player.setVolume(55);
+    } else if (dur === 0) {
+      // Ainda carregando — tenta de novo
+      _checarTimer = setTimeout(() => _avaliarDuracao(player), 2000);
     }
+    // dur ≤ 45 e > 0 = anúncio → fica mudo, próxima mudança de estado vai re-checar
   } catch(e) {}
 }
 
