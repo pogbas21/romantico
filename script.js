@@ -162,9 +162,11 @@ function selectTrack(videoId, thumb, title, author) {
 }
 
 let currentVideoId = null;
+let adEnforcer     = null;
 
 function playOnYouTube(videoId, title, art) {
-  if (ytPlayer) { ytPlayer.destroy(); ytPlayer = null; }
+  if (ytPlayer)    { ytPlayer.destroy(); ytPlayer = null; }
+  if (adEnforcer)  { clearInterval(adEnforcer); adEnforcer = null; }
   currentVideoId = videoId;
 
   ytPlayer = new YT.Player('yt-player', {
@@ -179,41 +181,70 @@ function playOnYouTube(videoId, title, art) {
     },
     events: {
       onReady: e => {
-        // Começa mutado — propaganda não vai ter som nenhum
-        e.target.mute();
-        e.target.setVolume(55);
+        forceMute(e.target);       // muta imediatamente
         e.target.playVideo();
-      },
-      onStateChange: e => {
-        // Toda vez que algo começa a tocar, verifica se é o vídeo real
-        if (e.data === YT.PlayerState.PLAYING) {
-          checarPropaganda(e.target);
-        }
+        iniciarEnforcer();         // polling contínuo
       },
     }
   });
+
+  // Intercepta mensagens postMessage do YouTube para detectar anúncios
+  window.addEventListener('message', onYTMessage);
 }
 
-function checarPropaganda(player) {
-  try {
-    const data   = player.getVideoData();
-    const ehReal = data && data.video_id === currentVideoId;
+function forceMute(p) {
+  try { p.mute();        } catch(e) {}
+  try { p.setVolume(0);  } catch(e) {}
+}
 
-    if (ehReal) {
-      if (player.isMuted()) {
-        player.unMute();
-        player.setVolume(55);
-      }
-    } else {
-      // É propaganda — mantém mutado
-      if (!player.isMuted()) player.mute();
-    }
+function forceUnmute(p) {
+  try { p.unMute();      } catch(e) {}
+  try { p.setVolume(55); } catch(e) {}
+}
+
+function estaEmPropaganda(p) {
+  // 1) Método não-documentado mas funcional em muitos casos
+  try {
+    if (typeof p.getAdState === 'function' && p.getAdState() === 1) return true;
   } catch(e) {}
 
-  // Continua verificando a cada 500ms enquanto estiver tocando
-  if (player.getPlayerState() === YT.PlayerState.PLAYING) {
-    setTimeout(() => checarPropaganda(player), 500);
-  }
+  // 2) Checa video_id do que está tocando agora
+  try {
+    const d = p.getVideoData();
+    if (d && d.video_id !== undefined && d.video_id !== currentVideoId) return true;
+  } catch(e) {}
+
+  return false; // assume que é o vídeo real se não detectou anúncio
+}
+
+function iniciarEnforcer() {
+  // Polling a cada 150ms — mais rápido que qualquer ad system pode reagir
+  adEnforcer = setInterval(() => {
+    if (!ytPlayer) return;
+    try {
+      if (estaEmPropaganda(ytPlayer)) {
+        forceMute(ytPlayer);
+      } else if (ytPlayer.isMuted()) {
+        forceUnmute(ytPlayer);
+      }
+    } catch(e) { forceMute(ytPlayer); }
+  }, 150);
+}
+
+// Intercepta postMessages internos do YouTube (inclui estado do anúncio)
+function onYTMessage(ev) {
+  if (!ev.origin.includes('youtube.com')) return;
+  try {
+    const msg = JSON.parse(ev.data);
+    const info = msg.info || {};
+    // Quando YouTube informa volume através da mensagem, verifica se é propaganda
+    if (msg.event === 'infoDelivery' && info.videoData !== undefined) {
+      const vid = info.videoData ? info.videoData.video_id : '';
+      if (ytPlayer && vid !== currentVideoId) {
+        forceMute(ytPlayer);
+      }
+    }
+  } catch(e) {}
 }
 
 /* ---- Barra flutuante ---- */
